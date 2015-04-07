@@ -1,2 +1,0 @@
-/home/ubuntu/ps4jetson/driver/src/CMakeFiles/mytest.dir
-/home/ubuntu/ps4jetson/driver/src/CMakeFiles/ps4eye.dir

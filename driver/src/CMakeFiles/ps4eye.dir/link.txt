@@ -1,2 +1,0 @@
-/usr/bin/ar cr libps4eye.a  CMakeFiles/ps4eye.dir/ps4eye.cpp.o
-/usr/bin/ranlib libps4eye.a
