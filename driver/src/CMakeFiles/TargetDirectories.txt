@@ -1,0 +1,2 @@
+/home/jon/code/PS4EYECam/driver/src/CMakeFiles/ps4eye.dir
+/home/jon/code/PS4EYECam/driver/src/CMakeFiles/mytest.dir
