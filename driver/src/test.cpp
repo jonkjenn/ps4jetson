@@ -8,6 +8,7 @@
 #include "unistd.h"
 #include <chrono>
 #include <signal.h>
+#include <mutex>
 
 using namespace std;
 using namespace std::chrono;
@@ -16,6 +17,8 @@ using namespace cv;
 bool update();
 void setup();
 void updateThread();
+
+mutex update_mutex;
 
 // mesure cam fps
 thread mThread;
@@ -41,7 +44,7 @@ unsigned long micros()
 }
 
 void my_function(int sig){ // can be called asynchronously
-    eye->stop();
+    eye->shutdown();
     exit(0);
 }
 
@@ -75,6 +78,7 @@ void setup()
     {
         namedWindow("window", WINDOW_AUTOSIZE);
         namedWindow("window2", WINDOW_AUTOSIZE);
+        moveWindow("window", 640, 0);
         //namedWindow("window2", WINDOW_AUTOSIZE);
         //namedWindow("window3", WINDOW_AUTOSIZE);
 
@@ -82,11 +86,12 @@ void setup()
         //check or load firmware to PlayStation Camera and exit
         eye->firmware_path="firmware.bin";
         eye->firmware_upload();
+        //eye->start_sensors_streaming();
         //mode 0: 60,30,15,8 fps 1280x800
         //mode 1: 120,60,30,15,8 fps 640x400
         //mode 2: 240,120,60,30 fps 320x192
         debug("Before init\n");
-        if(!(eye->init(1, 120)))
+        if(!(eye->init(0, 60)))
         {
             cout << "init failed" << std::endl;
             //don't use when you are debugging is fine.
@@ -101,8 +106,8 @@ void setup()
         mDepthThreshold1=35000;
         mDepthThreshold2=36000;
 
-        frame_rgb_left = new uint8_t[eye->getWidth()*eye->getHeight()*3];
-        frame_rgb_right = new uint8_t[eye->getWidth()*eye->getHeight()*3];
+        //frame_rgb_left = new uint8_t[eye->getWidth()*eye->getHeight()*3];
+        //frame_rgb_right = new uint8_t[eye->getWidth()*eye->getHeight()*3];
 
         //mFrameLeft = Surface(frame_rgb_left, eye->getWidth(), eye->getHeight(), eye->getWidth()*3,SurfaceChannelOrder::RGB);
         //memset(frame_rgb_left, 0, eye->getWidth()*eye->getHeight()*3);
@@ -140,8 +145,9 @@ void updateThread()
 {
     while( true )
     {
-            bool res = ps4eye::PS4EYECam::updateDevices();
-    if(!res) break;
+        lock_guard<mutex> lock(update_mutex);
+        bool res = ps4eye::PS4EYECam::updateDevices();
+        if(!res) break;
     }
 }
 
@@ -152,9 +158,14 @@ bool update()
 
     if(eye)
     {
-        isNewFrame = eye->isNewFrame();
+        {
+            lock_guard<mutex> lock(update_mutex);
+            isNewFrame = eye->isNewFrame();
+        }
+
         if(isNewFrame)
         {
+            lock_guard<mutex> lock(update_mutex);
             eye->check_ff71();
             frame=eye->getLastVideoFramePointer();
             
@@ -200,12 +211,12 @@ bool update()
                 //Mat f(eye->getHeight(), eye->getWidth(),CV_8UC2, frame->videoLeftFrame);
 //                Mat o(eye->getHeight(), eye->getWidth(),CV_8UC3);
 
-                Mat yuv(eye->getHeight(), eye->getWidth(),CV_8UC2, frame->videoRightFrame);
+                //Mat yuv(eye->getHeight(), eye->getWidth(),CV_8UC2, frame->videoRightFrame);
                 Mat yuvl(eye->getHeight(), eye->getWidth(),CV_8UC2, frame->videoLeftFrame);
                 //
  //               cvtColor(f,o,CV_YUV2BGR_YUYV);
  //
-                Mat rgb(eye->getHeight(),eye->getWidth(),CV_8UC3);
+                //Mat rgb(eye->getHeight(),eye->getWidth(),CV_8UC3);
                 Mat rgbl(eye->getHeight(),eye->getWidth(),CV_8UC3);
 
                 //Mat rgb2(eye->getHeight(),eye->getWidth(),CV_8UC3);
@@ -215,15 +226,15 @@ bool update()
                 //cv::cvtColor(yuv, rgb, CV_YUV2BGR_YUY2);
                 //cv::cvtColor(yuv, rgb, CV_BayerGR2RGB);
                 //
-                cv::cvtColor(yuv, rgb, 117);
+                //cv::cvtColor(yuv, rgb, 117);
                 cv::cvtColor(yuvl, rgbl, 117);
                 
                 //yuyvToRgb(frame->videoLeftFrame,frame_rgb_left,eye->getWidth(),eye->getHeight());
 
                 //Mat f(eye->getHeight(), eye->getWidth(),CV_8UC3,frame_rgb_left);
 
-                imshow("window",rgb);
-                imshow("window2",rgbl);
+                //imshow("window",rgb);
+                //imshow("window2",rgbl);
             }
         }
         //mCamFrameCount += isNewFrame ? 1 : 0;

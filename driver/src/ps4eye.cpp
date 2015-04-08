@@ -31,6 +31,7 @@
  *
  */
 
+#include "inttypes.h"
 #include <algorithm>
 #include "ps4eye.h"
 #include "ps4eye_regs.h"
@@ -39,6 +40,7 @@
 #include <iostream>
 #include <fstream>
 #include <unistd.h>
+#include <mutex>
 #if defined WIN32 || defined _WIN32 || defined WINCE
 #include <windows.h>
 #else
@@ -175,9 +177,8 @@ namespace ps4eye {
 #elif defined __MACH__ && defined __APPLE__
         return (int64_t)mach_absolute_time();
 #else
-        timespec t;
-        clock_gettime(CLOCK_REALTIME,&t);
-        return (int64_t)(t.tv_sec*1000000000+t.tv_nsec);
+        using namespace std::chrono;
+        return duration_cast<nanoseconds>(steady_clock::now().time_since_epoch()).count();
 #endif
     }
 
@@ -490,7 +491,6 @@ namespace ps4eye {
                             last_packet_type = packet_type;
                             frame_data_len = 0;
                         }
-                        //      debug("discard packet\n");
 
                         return;
                     case LAST_PACKET:
@@ -540,6 +540,7 @@ namespace ps4eye {
 
             do {
                 len = std::min(remaining_len, payload_len);
+                //debug("len: %d\n",len);
 
                 /* Payloads are prefixed with a UVC-style header.  We
                  consider a frame to start when the FID toggles, or the PTS
@@ -548,13 +549,13 @@ namespace ps4eye {
 
                 /* Verify UVC header.  Header length is always 12 */
                 if (data[0] != 0xc || len < 12) {
-                    //   debug("bad header\n");
+                       //debug("bad header\n");
                     goto discard;
                 }
 
                 /* Check errors */
                 if (data[1] & UVC_STREAM_ERR) {
-                    debug("payload error\n");
+                    //debug("payload error\n");
                     goto discard;
                 }
 
@@ -619,7 +620,7 @@ namespace ps4eye {
         uint32_t frame_counter;
         int8_t ff71status;
         bool is_streaming;
-        double last_frame_time;
+        int64_t last_frame_time;
     };
 
     static void LIBUSB_CALL cb_xfr(struct libusb_transfer *xfr)
@@ -733,7 +734,6 @@ namespace ps4eye {
         control_transfer_buffer = new uint8_t[72];
         //flag to check if firmware is loaded
         firmwareisloaded=firmware_check;
-
     }
 
     PS4EYECam::~PS4EYECam()
@@ -808,7 +808,6 @@ namespace ps4eye {
                                       len*4+8,
                                       buffer_out);
 
-        usleep(10000000);
         delete[] buffer_out;
         debug("END MULTIWRITE USB\n");
     }
@@ -886,7 +885,7 @@ namespace ps4eye {
                                       buffer_out);
 
         //sleep(1);
-        usleep(1000);
+        //usleep(1000);
         delete[] buffer_out;
         debug("END MULTIWRITE USB\n");
     }
@@ -1553,6 +1552,8 @@ namespace ps4eye {
             //reset_sensors();
             return false;
         }
+        sleep(10);
+        start_sensors_streaming();
     /*  TODO play with video modes perhaps we will need to go to uvc path without ov580 information.
         debug("Show video mode registers from sensor 1\n");
         dump_sensor_video_mode(1);
@@ -1673,7 +1674,7 @@ namespace ps4eye {
         }*/
 
 
-        register_write(0x5080,0x80,0x03); 
+        register_write(0x5081,0x08,0x01); 
 
         return true;
     }
@@ -1743,7 +1744,7 @@ namespace ps4eye {
 
                     debug("i=%d Write register 0xff70 to 01\n",urb->ff71status);
                     multi_register_write(ov580_reg_stream_w1,ARRAY_SIZE(ov580_reg_stream_w1),0xff);
-                    usleep(100);
+                    //usleep(100);
                     val=register_read(0xff71,0xff);
                     debug("i=%d val=%d\n",urb->ff71status,val);
                     urb->ff71status=2;
@@ -1761,7 +1762,7 @@ namespace ps4eye {
 
                     val=register_read(0xff71,0xff);
                     debug("i=%d val=%d\n",urb->ff71status,val);
-                    usleep(100);
+                    //usleep(100);
 
                     val=register_read(0xff71,0xff);
                     debug("i=%d val=%d\n",urb->ff71status,val);
@@ -2695,7 +2696,7 @@ namespace ps4eye {
         uvc_set_hue(11);
         set_led_on();
 
-        //usleep(1000);
+        usleep(1000);
 
 
         return true;

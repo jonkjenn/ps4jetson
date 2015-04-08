@@ -190,7 +190,7 @@ namespace ps4eye {
         uint8_t frame[1280*808*2];
         uint8_t mode;
         eyeframe myframe;
-         double last_qued_frame_time;
+         int64_t last_qued_frame_time;
 
         std::shared_ptr<class URBDesc> urb;
 
